@@ -39,6 +39,7 @@ use core::mem::MaybeUninit;
 #[cfg(feature = "no_std")]
 use arrayvec::ArrayVec;
 use utf8parse as utf8;
+use log::{debug, info};
 
 mod definitions;
 mod params;
@@ -85,6 +86,10 @@ pub struct Parser<const OSC_RAW_BUF_SIZE: usize = MAX_OSC_RAW> {
     osc_raw: ArrayVec<u8, OSC_RAW_BUF_SIZE>,
     #[cfg(not(feature = "no_std"))]
     osc_raw: Vec<u8>,
+    #[cfg(feature = "no_std")]
+    apc_raw: ArrayVec<u8, OSC_RAW_BUF_SIZE>,
+    #[cfg(not(feature = "no_std"))]
+    apc_raw: Vec<u8>,
     osc_params: [(usize, usize); MAX_OSC_PARAMS],
     osc_num_params: usize,
     ignoring: bool,
@@ -185,7 +190,12 @@ impl<const OSC_RAW_BUF_SIZE: usize> Parser<OSC_RAW_BUF_SIZE> {
                         self.perform_action(performer, Action::Unhook, byte);
                     },
                     State::OscString => {
+                        println!("OscEnd, {:x?}", byte);
                         self.perform_action(performer, Action::OscEnd, byte);
+                    },
+                    State::ApcString => {
+                        println!("ApcEnd");
+                        self.perform_action(performer, Action::ApcEnd, byte);
                     },
                     _ => (),
                 }
@@ -200,7 +210,12 @@ impl<const OSC_RAW_BUF_SIZE: usize> Parser<OSC_RAW_BUF_SIZE> {
                         self.perform_action(performer, Action::Hook, byte);
                     },
                     State::OscString => {
+                        println!("OscStart, {:x?}", byte);
                         self.perform_action(performer, Action::OscStart, byte);
+                    },
+                    State::ApcString => {
+                        println!("ApcStart");
+                        self.perform_action(performer, Action::ApcStart, byte);
                     },
                     _ => (),
                 }
@@ -209,6 +224,10 @@ impl<const OSC_RAW_BUF_SIZE: usize> Parser<OSC_RAW_BUF_SIZE> {
                 self.state = state;
             },
         }
+    }
+
+    fn apc_dispatch<P: Perform>(&self, performer: &mut P, byte: u8) {
+        performer.apc_dispatch(&*self.apc_raw, byte);
     }
 
     /// Separate method for osc_dispatch that borrows self as read-only
@@ -246,6 +265,24 @@ impl<const OSC_RAW_BUF_SIZE: usize> Parser<OSC_RAW_BUF_SIZE> {
                 performer.hook(self.params(), self.intermediates(), self.ignoring, byte as char);
             },
             Action::Put => performer.put(byte),
+            Action::ApcStart => {
+                println!("random");
+                self.apc_raw.clear();
+            },
+            Action::ApcPut => {
+                println!("bullshit");
+                #[cfg(feature = "no_std")]
+                {
+                    if self.apc_raw.is_full() {
+                        return;
+                    }
+                }
+                self.apc_raw.push(byte);
+            },
+            Action::ApcEnd => {
+                println!("go");
+                self.apc_dispatch(performer, byte);
+            },
             Action::OscStart => {
                 self.osc_raw.clear();
                 self.osc_num_params = 0;
@@ -428,6 +465,9 @@ pub trait Perform {
     /// The `ignore` flag indicates that more than two intermediates arrived and
     /// subsequent characters were ignored.
     fn esc_dispatch(&mut self, _intermediates: &[u8], _ignore: bool, _byte: u8) {}
+
+
+    fn apc_dispatch(&mut self, _intermediates: &[u8], _byte: u8) {}
 }
 
 #[cfg(all(test, feature = "no_std"))]

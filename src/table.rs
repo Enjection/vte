@@ -5,7 +5,7 @@ use crate::definitions::{pack, Action, State};
 use vte_generate_state_changes::generate_state_changes;
 
 // Generate state changes at compile-time
-pub static STATE_CHANGES: [[u8; 256]; 16] = state_changes();
+pub static STATE_CHANGES: [[u16; 289]; 17] = state_changes();
 generate_state_changes!(state_changes, {
     Anywhere {
         0x18 => (Ground, Execute),
@@ -46,7 +46,8 @@ generate_state_changes!(state_changes, {
         0x50        => (DcsEntry, None),
         0x58        => (SosPmApcString, None),
         0x5e        => (SosPmApcString, None),
-        0x5f        => (SosPmApcString, None),
+        // 0x5e        => (SosPmApcString, None),
+        0x5f        => (ApcString, None), // use this
     },
 
     EscapeIntermediate {
@@ -158,6 +159,15 @@ generate_state_changes!(state_changes, {
         0x1c..=0x1f => (Anywhere, Ignore),
         0x20..=0x7f => (Anywhere, Ignore),
         0x9c        => (Ground, None),
+    },
+
+    ApcString {
+        0x00..=0x06 => (Anywhere, Ignore),
+        0x07        => (Ground, None),
+        0x08..=0x17 => (Anywhere, Ignore),
+        0x19        => (Anywhere, Ignore),
+        0x1c..=0x1f => (Anywhere, Ignore),
+        0x20..=0xff => (Anywhere, ApcPut),
     },
 
     OscString {

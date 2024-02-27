@@ -1,7 +1,7 @@
 use core::mem;
 
 #[allow(dead_code)]
-#[repr(u8)]
+#[repr(u16)]
 #[derive(Debug, Default, Copy, Clone)]
 pub enum State {
     Anywhere = 0,
@@ -21,10 +21,11 @@ pub enum State {
     OscString = 13,
     SosPmApcString = 14,
     Utf8 = 15,
+    ApcString = 16,
 }
 
 #[allow(dead_code)]
-#[repr(u8)]
+#[repr(u16)]
 #[derive(Debug, Clone, Copy)]
 pub enum Action {
     None = 0,
@@ -43,6 +44,9 @@ pub enum Action {
     Put = 13,
     Unhook = 14,
     BeginUtf8 = 15,
+    ApcEnd = 16,
+    ApcPut = 17,
+    ApcStart = 18,
 }
 
 /// Unpack a u8 into a State and Action
@@ -53,20 +57,20 @@ pub enum Action {
 ///
 /// Bad things will happen if those invariants are violated.
 #[inline(always)]
-pub fn unpack(delta: u8) -> (State, Action) {
+pub fn unpack(delta: u16) -> (State, Action) {
     unsafe {
         (
             // State is stored in bottom 4 bits
-            mem::transmute(delta & 0x0f),
+            mem::transmute(delta & 0xff),
             // Action is stored in top 4 bits
-            mem::transmute(delta >> 4),
+            mem::transmute(delta >> 8),
         )
     }
 }
 
 #[inline(always)]
-pub const fn pack(state: State, action: Action) -> u8 {
-    (action as u8) << 4 | state as u8
+pub const fn pack(state: State, action: Action) -> u16 {
+    (action as u16) << 8 | state as u16
 }
 
 #[cfg(test)]

@@ -633,6 +633,9 @@ pub trait Handler {
     /// Load data from clipboard.
     fn clipboard_load(&mut self, _: u8, _: &str) {}
 
+    /// Store data from apc.
+    fn apc_store(&mut self, _: &[u8], _: u8) {}
+
     /// Run the decaln routine.
     fn decaln(&mut self) {}
 
@@ -1237,6 +1240,11 @@ where
     #[inline]
     fn unhook(&mut self) {
         debug!("[unhandled unhook]");
+    }
+
+    #[inline]
+    fn apc_dispatch(&mut self, params: &[u8], byte: u8) {
+        self.handler.apc_store(params, byte);
     }
 
     #[inline]
